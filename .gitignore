@@ -1,0 +1,28 @@
+# Rust
+/target
+
+# cbindgen 自动生成的头文件,构建时会重新生成
+/include/primp.h
+
+# Go 构建产物
+*.exe
+*.test
+*.out
+
+# 共享库(由 cargo 生成)
+*.dll
+*.so
+*.dylib
+*.lib
+*.a
+
+# 编辑器/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# 备份文件
+*.rs.bk
+*~

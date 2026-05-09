@@ -1,0 +1,30 @@
+[package]
+name = "primp-go"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.84"
+description = "C ABI 绑定层,用于将 primp 暴露给 Go 等可调用 C 的语言"
+authors = ["primp-go contributors"]
+
+[lib]
+name = "primp_go"
+path = "src/lib.rs"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+primp = { version = "1.2", path = "../primp", features = ["impersonate", "socks"] }
+tokio = { version = "1.49.0", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0.149"
+indexmap = { version = "2.13.0", features = ["serde"] }
+foldhash = "0.2.0"
+http = "1.4"
+mime = "0.3.17"
+encoding_rs = "0.8.35"
+once_cell = "1.21"
+url = "2.5"
+rand = "0.10"
+tracing = "0.1.41"
+
+[build-dependencies]
+cbindgen = "0.27"

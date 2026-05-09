@@ -1,0 +1,21 @@
+# cbindgen 配置:为 Go cgo 生成 C 头文件
+language = "C"
+header = "/* primp-go FFI 头文件 - 由 cbindgen 自动生成,请勿手工编辑 */"
+include_guard = "PRIMP_GO_H"
+pragma_once = true
+autogen_warning = "/* 警告:本文件由构建脚本自动生成 */"
+no_includes = false
+sys_includes = ["stdint.h", "stdbool.h", "stddef.h"]
+cpp_compat = true
+style = "type"
+usize_is_size_t = true
+
+[export]
+prefix = ""
+
+[enum]
+prefix_with_name = true
+rename_variants = "QualifiedScreamingSnakeCase"
+
+[parse]
+parse_deps = false
