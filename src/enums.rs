@@ -4,7 +4,7 @@
 
 use primp::imp::{Impersonate, ImpersonateOS};
 use primp::Method;
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 
 /// HTTP 请求方法的整数编码(对应 Go 端 `Method` 枚举)。
 #[repr(i32)]
