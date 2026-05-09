@@ -332,10 +332,15 @@ func (c *Client) Request(method Method, url string, opts ...RequestOption) (*Res
 	cstrs := newCStrPool()
 	defer cstrs.freeAll()
 
-	var bodyPtr *C.uint8_t
+	// 把请求体拷到 C 堆,避免把 Go 指针放进 cgo struct 触发
+	// "argument of cgo function has Go pointer to unpinned Go pointer" panic。
+	// cgo 规则:传给 C 的 Go 指针(&cReq)里不能再嵌套指向 Go 内存的指针,
+	// 所以这里用 C.CBytes 复制一份到 C 堆,函数返回前 C.free 掉。
+	var bodyCMem unsafe.Pointer
 	var bodyLen C.size_t
 	if len(cfg.body) > 0 {
-		bodyPtr = (*C.uint8_t)(unsafe.Pointer(&cfg.body[0]))
+		bodyCMem = C.CBytes(cfg.body) // C.malloc + memcpy
+		defer C.free(bodyCMem)
 		bodyLen = C.size_t(len(cfg.body))
 	}
 
@@ -343,7 +348,7 @@ func (c *Client) Request(method Method, url string, opts ...RequestOption) (*Res
 		params_json:               cstrs.add(paramsJSON),
 		headers_json:              cstrs.add(headersJSON),
 		cookies_json:              cstrs.add(cookiesJSON),
-		body_ptr:                  bodyPtr,
+		body_ptr:                  (*C.uint8_t)(bodyCMem),
 		body_len:                  bodyLen,
 		json_body:                 cstrs.add(jsonBody),
 		form_data_json:            cstrs.add(formJSON),
@@ -361,8 +366,6 @@ func (c *Client) Request(method Method, url string, opts ...RequestOption) (*Res
 	var respH *C.PrimpResponseHandle
 	var errH *C.PrimpErrorHandle
 	rc := C.primp_request(handle, C.int32_t(method), cURL, &cReq, &respH, &errH)
-	// 防止 cfg.body 被 GC(KeepAlive 在 cgo 调用结束后仍要保住引用)
-	runtime.KeepAlive(cfg.body)
 	if rc != 0 {
 		return nil, errFromHandle(errH)
 	}

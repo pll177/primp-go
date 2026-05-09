@@ -145,6 +145,62 @@ func TestHeadersUserAgent(t *testing.T) {
 	}
 }
 
+// TestPostWithContent 回归测试:用 WithContent 传 []byte 不应触发
+// "argument of cgo function has Go pointer to unpinned Go pointer" panic。
+//
+// 跑这个用例时建议带上 GODEBUG=cgocheck=2 一起跑,可以最严格地复现/验证。
+func TestPostWithContent(t *testing.T) {
+	c, err := NewClient(ClientOptions{Timeout: 10 * time.Second})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	defer c.Close()
+
+	payload := []byte("hello world from WithContent —— cgo pointer regression test")
+	resp, err := c.Post(httpbin+"/post",
+		WithContent(payload),
+		WithHeaders(map[string]string{"content-type": "text/plain"}),
+	)
+	if err != nil {
+		t.Fatalf("Post WithContent 失败: %v", err)
+	}
+	defer resp.Close()
+
+	if resp.StatusCode() != 200 {
+		t.Fatalf("status=%d, 期望 200", resp.StatusCode())
+	}
+	var body struct {
+		Data string `json:"data"`
+	}
+	if err := resp.JSON(&body); err != nil {
+		t.Fatalf("JSON: %v", err)
+	}
+	if body.Data != string(payload) {
+		t.Errorf("回显 data=%q, 期望 %q", body.Data, string(payload))
+	}
+}
+
+// TestPostWithContentLarge 用一个 64KB 的随机 payload 走一遍 WithContent,
+// 确保大体积也不会触发 cgocheck panic 或越界。
+func TestPostWithContentLarge(t *testing.T) {
+	c, _ := NewClient(ClientOptions{Timeout: 15 * time.Second})
+	defer c.Close()
+
+	payload := make([]byte, 64*1024)
+	for i := range payload {
+		payload[i] = byte(i & 0xff)
+	}
+
+	resp, err := c.Post(httpbin+"/post", WithContent(payload))
+	if err != nil {
+		t.Fatalf("Post 大 body 失败: %v", err)
+	}
+	defer resp.Close()
+	if resp.StatusCode() != 200 {
+		t.Fatalf("status=%d, 期望 200", resp.StatusCode())
+	}
+}
+
 // TestCookies 验证 cookie 写入能被服务器回显。
 func TestCookies(t *testing.T) {
 	c, err := NewClient(ClientOptions{})
