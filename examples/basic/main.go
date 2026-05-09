@@ -1,3 +1,5 @@
+//go:build windows && amd64
+
 // 示例:用 Chrome 146 指纹访问 httpbin,打印 UA 和返回的 JSON。
 package main
 

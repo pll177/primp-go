@@ -3,28 +3,41 @@ name = "primp-go"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.84"
-description = "C ABI 绑定层,用于将 primp 暴露给 Go 等可调用 C 的语言"
+description = "C ABI 桥接层,把 primp HTTP 客户端暴露给 Go 等可调用 C 的语言"
 authors = ["primp-go contributors"]
+license = "MIT"
+repository = "https://github.com/pll177/primp-go"
 
 [lib]
 name = "primp_go"
 path = "src/lib.rs"
-crate-type = ["cdylib", "staticlib"]
+# 仅生成 staticlib;Go 端通过 cgo 静态链接,
+# 调用方机器上无需安装 Rust 工具链。
+crate-type = ["staticlib"]
 
+# primp 上游通过 git 拉取,内部的 vendored sub-crate(primp-h2 等)
+# 由 Cargo 在 git 检出后自动解析。
 [dependencies]
-primp = { version = "1.2", path = "../primp", features = ["impersonate", "socks"] }
-tokio = { version = "1.49.0", features = ["full"] }
+primp = { git = "https://github.com/deedy5/primp", package = "primp", features = ["impersonate", "socks"] }
+tokio = { version = "1.49", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1.0.149"
-indexmap = { version = "2.13.0", features = ["serde"] }
-foldhash = "0.2.0"
+serde_json = "1"
+indexmap = { version = "2", features = ["serde"] }
+foldhash = "0.2"
 http = "1.4"
-mime = "0.3.17"
-encoding_rs = "0.8.35"
-once_cell = "1.21"
-url = "2.5"
+mime = "0.3"
+encoding_rs = "0.8"
+once_cell = "1"
+url = "2"
 rand = "0.10"
-tracing = "0.1.41"
+tracing = "0.1"
 
 [build-dependencies]
 cbindgen = "0.27"
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+opt-level = "z"     # 优先优化体积
+panic = "abort"
+strip = "symbols"

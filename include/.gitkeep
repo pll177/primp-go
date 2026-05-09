@@ -1,0 +1,2 @@
+此目录由 GitHub Actions 自动填充 primp.h(cbindgen 生成的 C 头文件)。
+本地手动跑 cargo build 也会重新生成它。

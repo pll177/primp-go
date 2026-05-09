@@ -1,0 +1,2 @@
+此目录会被 GitHub Actions 自动填充 libprimp_go.a。
+首次 CI 跑完后,该目录下会出现真实的静态库。

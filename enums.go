@@ -1,3 +1,5 @@
+//go:build windows && amd64
+
 // Package primp 是 primp HTTP 客户端的 Go 绑定,核心由 Rust 实现。
 //
 // 本文件定义命名枚举(Method / Impersonate / ImpersonateOS),

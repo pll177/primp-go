@@ -1,0 +1,81 @@
+name: 构建 Windows 静态库并自动提交
+
+# 触发条件:
+# - 推送到 main 分支且改动了 Rust 源码
+# - 手动触发(workflow_dispatch)
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'cbindgen.toml'
+      - 'build.rs'
+      - '.github/workflows/build-libs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-libs-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust(GNU 目标,与 Go 端 MinGW 链接器兼容)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - name: 缓存 cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.toml') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: 编译静态库(release + LTO + strip)
+        shell: bash
+        run: |
+          cargo build --release --target x86_64-pc-windows-gnu
+
+      - name: 收集产物
+        shell: bash
+        run: |
+          mkdir -p lib/windows_amd64
+          cp target/x86_64-pc-windows-gnu/release/libprimp_go.a lib/windows_amd64/
+          ls -la lib/windows_amd64/
+          ls -la include/
+
+      - name: 显示静态链接所需的系统库(辅助调试)
+        shell: bash
+        run: |
+          cargo rustc --release --target x86_64-pc-windows-gnu -- --print=native-static-libs 2>&1 | grep -i "native-static-libs" || true
+
+      - name: 提交回仓库(若有变化)
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/windows_amd64/libprimp_go.a include/primp.h
+          if git diff --staged --quiet; then
+            echo "无变化,无需提交"
+          else
+            git commit -m "ci: 重新构建 Windows 静态库 [skip ci]
+
+            由 GitHub Actions 自动提交。
+            源代码修改触发了重新编译。
+
+            Co-Authored-By: github-actions[bot] <noreply@github.com>"
+            git push
+          fi

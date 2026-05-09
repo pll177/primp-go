@@ -1,20 +1,17 @@
 # Rust
 /target
 
-# cbindgen 自动生成的头文件,构建时会重新生成
-/include/primp.h
-
 # Go 构建产物
 *.exe
 *.test
 *.out
 
-# 共享库(由 cargo 生成)
+# 临时/动态库(不提交)。
+# 注意:静态库 lib/windows_amd64/libprimp_go.a 需要被提交,
+# 因此用更精确的规则只忽略其它路径下的 .a / .lib。
 *.dll
 *.so
 *.dylib
-*.lib
-*.a
 
 # 编辑器/IDE
 .vscode/

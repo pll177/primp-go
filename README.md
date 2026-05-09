@@ -1,6 +1,8 @@
-# primp-go
+# primp-go (Windows-only)
 
-[primp](https://github.com/deedy5/primp) HTTP 客户端的 **Go 语言绑定** —— 核心仍是 Rust,通过 C ABI + cgo 暴露给 Go。
+[primp](https://github.com/deedy5/primp) HTTP 客户端的 **Go 语言绑定** —— 核心是 Rust,通过 C ABI + cgo 暴露给 Go。
+
+> ⚠️ **当前版本仅支持 Windows amd64**。在其它平台上构建会得到 `build constraints exclude all Go files` 的报错。
 
 设计目标:在 Go 端获得与 [`primp-python`](https://github.com/deedy5/primp/tree/main/crates/primp-python) 类似的使用体验,同时遵循 Go 习惯:
 
@@ -8,60 +10,27 @@
 - ✅ **同步阻塞 API**:`client.Get(url)` 直接返回 `*Response`;并发由调用方用 `go` 关键字驱动。
 - ✅ **函数式选项**:用 `WithJSON` / `WithHeaders` / `WithTimeout` 等覆盖 Python 关键字参数风格。
 - ✅ **完整中文注释**。
-- ✅ **支持 Chrome / Edge / Safari / Firefox / Opera 多版本指纹模拟,支持 Android / iOS / Linux / macOS / Windows 系统指纹**。
+- ✅ **支持 Chrome / Edge / Safari / Firefox / Opera 多版本指纹模拟**。
+- ✅ **预编译静态库由 GitHub Actions 提供,调用方无需安装 Rust**。
 
 ---
 
-## 安装与构建
+## 调用方:零 Rust 依赖,直接 `go get`
 
-primp-go 是 cgo 包,需要先构建出 Rust 动态库。
+仓库内已经包含由 GitHub Actions 自动构建的 Windows 静态库(`lib/windows_amd64/libprimp_go.a`)和 C 头文件(`include/primp.h`),所以**调用方只需要 Go 工具链**(自带 MinGW gcc),不需要安装 Rust:
 
-### 1. 拉取代码
-
-```bash
-git clone https://github.com/pll177/primp-go.git
-cd primp-go
-```
-
-或者通过 `go get`:
-
-```bash
+```powershell
+# 1. 在你的项目里
 go get github.com/pll177/primp-go
+
+# 2. 直接 build / run / test
+go run .
 ```
 
-(`go get` 只会下载源码,**仍需手动编译 Rust 库** —— 见下一步)
+> Go for Windows 的官方安装包自带 MinGW gcc,cgo 开箱即用。
+> 如果你的环境里 cgo 不可用,先 `go env -w CGO_ENABLED=1`,并确保 PATH 里有 gcc(如装了 [TDM-GCC](https://jmeubank.github.io/tdm-gcc/) 或 MSYS2 的 mingw64 工具链)。
 
-### 2. 编译 Rust 动态库
-
-> 需要 Rust toolchain ≥ 1.84(`rustup toolchain install stable`)
-
-```bash
-cargo build --release
-```
-
-产物路径:
-- Linux:   `target/release/libprimp_go.so`
-- macOS:   `target/release/libprimp_go.dylib`
-- Windows: `target\release\primp_go.dll`(同时生成 `primp_go.dll.lib` 给 cgo 链接)
-- 头文件: `include/primp.h`(由 cbindgen 自动生成)
-
-第一次编译会从 [deedy5/primp](https://github.com/deedy5/primp) 拉取上游 primp Rust crate,耗时较长(数分钟),之后增量构建很快。
-
-### 3. 在 Go 代码中使用
-
-```bash
-go build ./...
-go test ./...                   # 联网测试,会访问 httpbin.org
-go run ./examples/basic
-```
-
-`ffi.go` 已通过 `#cgo LDFLAGS` 自动指向 `./target/release` 目录,**只要在仓库根目录跑 `go build` 即可**,无需手工设置 LD_LIBRARY_PATH。
-
-如果要把 primp-go 作为依赖被别的 Go 项目使用,需要把 `target/release/libprimp_go.*` 与 `include/primp.h` 一起分发,或者在你的项目里再次执行 `cargo build --release`。
-
----
-
-## 用法速览
+### 最小用法
 
 ```go
 package main
@@ -75,7 +44,6 @@ import (
 )
 
 func main() {
-    // 1. 创建 Client(同步,支持浏览器指纹模拟)
     client, err := primp.NewClient(primp.ClientOptions{
         Impersonate:   primp.ImpersonateChromeV146,
         ImpersonateOS: primp.ImpersonateOSWindows,
@@ -86,23 +54,43 @@ func main() {
     }
     defer client.Close()
 
-    // 2. 发送请求(函数式选项)
-    resp, err := client.Post("https://httpbin.org/post",
-        primp.WithJSON(map[string]any{"hello": "世界"}),
-        primp.WithHeaders(map[string]string{"X-Trace": "abc"}),
-    )
+    resp, err := client.Get("https://httpbin.org/get?msg=hello")
     if err != nil {
         log.Fatal(err)
     }
     defer resp.Close()
 
-    fmt.Println(resp.StatusCode(), resp.URL())
-    var body map[string]any
-    _ = resp.JSON(&body)
+    fmt.Println("状态:", resp.StatusCode())
+    fmt.Println("URL:  ", resp.URL())
+    fmt.Println("UA:   ", resp.Headers()["User-Agent"])
 }
 ```
 
-### 模块级便捷函数
+---
+
+## 维护者:在本地从源码构建
+
+如果你要修改 Rust 端代码,需要 Rust toolchain ≥ 1.84:
+
+```powershell
+rustup target add x86_64-pc-windows-gnu
+cargo build --release --target x86_64-pc-windows-gnu
+
+# 把产物拷到 cgo 期望的位置
+mkdir lib\windows_amd64 -ErrorAction SilentlyContinue
+copy target\x86_64-pc-windows-gnu\release\libprimp_go.a lib\windows_amd64\
+
+# 然后跑 Go 端
+go build .\...
+go test .\...
+go run .\examples\basic
+```
+
+或者直接 push 到 main —— GitHub Actions 会自动重新编译并把新静态库 commit 回仓库。
+
+---
+
+## 模块级便捷函数
 
 无需创建 `Client`,适合一次性调用:
 
@@ -112,7 +100,7 @@ resp, err := primp.Post("https://httpbin.org/post", primp.WithJSON(payload))
 resp, err := primp.RequestOnce(primp.MethodPATCH, url, primp.WithContent(body))
 ```
 
-### 错误处理
+## 错误处理
 
 ```go
 import "errors"
@@ -132,9 +120,9 @@ case errors.Is(err, primp.ErrStatus):
 
 完整错误类型:`ErrBuilder` / `ErrRequest` / `ErrConnect` / `ErrTimeout` / `ErrStatus` / `ErrRedirect` / `ErrBody` / `ErrDecode` / `ErrUpgrade` / `ErrGeneric`。
 
-### 并发
+## 并发
 
-primp-go 是同步 API,要并发就用 goroutine + WaitGroup/channel:
+`Client` 是线程安全的(内部 RwLock 保护),可在多个 goroutine 间共享:
 
 ```go
 client, _ := primp.NewClient(primp.ClientOptions{Impersonate: primp.ImpersonateChrome})
@@ -154,8 +142,6 @@ for _, u := range urls {
 wg.Wait()
 ```
 
-`Client` 是线程安全的(内部 RwLock 保护),可在多个 goroutine 间共享。
-
 ---
 
 ## 浏览器指纹枚举速查
@@ -172,8 +158,6 @@ wg.Wait()
 | `ImpersonateRandom`           | 随机一个                          |
 
 OS 指纹:`ImpersonateOSAndroid` / `IOS` / `Linux` / `MacOS` / `Windows` / `Random` / `None`。
-
----
 
 ## 与 primp-python 的对照
 
@@ -193,33 +177,25 @@ OS 指纹:`ImpersonateOSAndroid` / `IOS` / `Linux` / `MacOS` / `Windows` / `Rand
 
 ```
 primp-go/
-├── Cargo.toml          # Rust crate (cdylib + staticlib)
-├── build.rs            # cbindgen 生成 include/primp.h
-├── cbindgen.toml
-├── src/                # Rust FFI 源码
-│   ├── lib.rs          # extern "C" 导出
-│   ├── enums.rs        # i32 ↔ primp 原生枚举映射
-│   ├── error.rs        # 错误分类(对应 Go ErrorKind)
-│   ├── ffi.rs          # 字符串/JSON 辅助
-│   └── runtime.rs      # 全局 tokio runtime
-├── include/primp.h     # cbindgen 自动生成(.gitignore)
-├── go.mod              # Go module: github.com/pll177/primp-go
-├── enums.go            # Method / Impersonate / ImpersonateOS 命名枚举
-├── errors.go           # PrimpError / ErrKindXxx
-├── ffi.go              # cgo 包装层(内部)
-├── primp.go            # 公开 API:Client / NewClient / Get / Post / ...
-├── response.go         # Response 类型
-├── primp_test.go       # 集成测试(联网,httpbin)
-└── examples/basic/main.go
+├── Cargo.toml                # Rust crate(staticlib)
+├── build.rs, cbindgen.toml   # cbindgen 生成 include/primp.h
+├── src/                      # Rust FFI 源码
+├── include/primp.h           # ← 由 CI 自动生成并 commit
+├── lib/windows_amd64/
+│   └── libprimp_go.a         # ← 由 CI 自动构建并 commit
+├── go.mod
+├── enums.go errors.go ffi.go primp.go response.go
+├── primp_test.go             # 集成测试(联网,httpbin)
+├── examples/basic/main.go
+└── .github/workflows/build-libs.yml   # 自动构建 + commit
 ```
 
----
+## 当前不支持
 
-## 当前不支持(后续版本)
-
-- 流式响应(`iter_bytes` / `iter_lines`)
-- multipart 文件上传(`files=`)
-- `AsyncClient`(异步语义在 Go 中不必要 —— 直接 `go client.Get(...)` 即可)
+- 🚫 **Linux / macOS**:计划但尚未提供预编译库
+- 🚫 流式响应(`iter_bytes` / `iter_lines`)
+- 🚫 multipart 文件上传(`files=`)
+- 🚫 `AsyncClient`(异步在 Go 中不必要,直接 `go client.Get(...)` 即可)
 
 ## 协议
 

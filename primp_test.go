@@ -1,3 +1,5 @@
+//go:build windows && amd64
+
 package primp
 
 // 端到端测试。需要联网,默认通过 httpbin.org 进行验证。

@@ -1,10 +1,10 @@
+//go:build windows && amd64
+
 package primp
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/include
-#cgo linux LDFLAGS: -L${SRCDIR}/target/release -lprimp_go -lm -ldl -lpthread
-#cgo darwin LDFLAGS: -L${SRCDIR}/target/release -lprimp_go -framework Security -framework CoreFoundation
-#cgo windows LDFLAGS: -L${SRCDIR}/target/release -lprimp_go -lws2_32 -luserenv -lntdll -lbcrypt
+#cgo windows,amd64 LDFLAGS: -L${SRCDIR}/lib/windows_amd64 -lprimp_go -lws2_32 -luserenv -lntdll -lbcrypt -ladvapi32 -lcrypt32 -lsecur32 -lncrypt -liphlpapi -lkernel32 -lws2_32 -lpowrprof -lpsapi -lShell32 -lOle32 -lOleAut32 -luuid -lWinSpool
 
 #include <stdlib.h>
 #include <string.h>
